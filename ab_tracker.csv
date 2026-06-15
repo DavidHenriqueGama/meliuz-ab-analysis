@@ -1,0 +1,7 @@
+data_analise,nome_teste,parceiro,periodo,grupos,descricao,vencedor,p_value,gmv_vencedor,margem_vencedor_pct,lucro_vencedor,decisao
+2026-06-13 12:53,Teste A/B Parceiro A,Parceiro A,01/01/2011 a 02/04/2011,Grupo 1 | Grupo 2 | Grupo 3,Teste de variantes de cashback para Parceiro A,Grupo 1,"Grupo 2: 0.1349, Grupo 3: 0.0338",5605173.0,63.42,404711.0,Escalar Grupo 1 para 100% do tráfego
+2026-06-13 12:53,Teste A/B Parceiro B,Parceiro B,01/05/2011 a 30/06/2011,Grupo 1 | Grupo 2 | Grupo 3,Teste de variantes de cashback para Parceiro B,Grupo 1,"Grupo 2: 0.0, Grupo 3: 0.0",4093818.0,63.64,286570.0,Escalar Grupo 1 para 100% do tráfego
+2026-06-13 12:53,Teste A/B Parceiro C,Parceiro C,01/07/2011 a 14/08/2011,Grupo 1 | Grupo 2,Teste de variantes de cashback para Parceiro C,Grupo 1,Grupo 2: 0.9218,1738460.0,28.57,34769.0,Escalar Grupo 1 para 100% do tráfego
+2026-06-15 11:57,Teste A/B Parceiro A,Parceiro A,01/01/2011 a 02/04/2011,Grupo 1 | Grupo 2 | Grupo 3,Teste de variantes de cashback para Parceiro A,Grupo 1,"Grupo 2: 0.1349, Grupo 3: 0.0338",5605173.0,63.42,404711.0,Escalar Grupo 1 para 100% do tráfego
+2026-06-15 11:57,Teste A/B Parceiro B,Parceiro B,01/05/2011 a 30/06/2011,Grupo 1 | Grupo 2 | Grupo 3,Teste de variantes de cashback para Parceiro B,Grupo 1,"Grupo 2: 0.0, Grupo 3: 0.0",4093818.0,63.64,286570.0,Escalar Grupo 1 para 100% do tráfego
+2026-06-15 11:57,Teste A/B Parceiro C,Parceiro C,01/07/2011 a 14/08/2011,Grupo 1 | Grupo 2,Teste de variantes de cashback para Parceiro C,Grupo 1,Grupo 2: 0.9218,1738460.0,28.57,34769.0,Escalar Grupo 1 para 100% do tráfego
