@@ -14,6 +14,7 @@ A solução:
 - Aplica teste de significância estatística (t-test)
 - Gera relatório Markdown em reports/
 - Registra resultado no tracker CSV (ab_tracker.csv)
+- Registra resultado direto no Google Sheets (diferencial)
 """
 
 import sys
@@ -33,6 +34,10 @@ TRACKER_COLUMNS = [
     "descricao", "vencedor", "p_value", "gmv_vencedor",
     "margem_vencedor_pct", "lucro_vencedor", "decisao"
 ]
+
+# ─── Google Sheets config ─────────────────────────────────────────────────────
+SHEETS_CREDENTIALS_FILE = "meliuz-ab-analysis-71566b5f008f.json"
+SHEETS_SPREADSHEET_ID   = "1__IQqt70t8w-jqs4Nt2d_PJ7c1-d01OBtp7j4fUWQzM"
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 def parse_brl(value: str) -> float:
@@ -90,10 +95,6 @@ def compute_summary(df: pd.DataFrame) -> pd.DataFrame:
 
 # ─── Significância estatística ───────────────────────────────────────────────
 def run_significance_tests(df: pd.DataFrame) -> dict:
-    """
-    Compara compradores diários de cada variante contra o Grupo 1 (controle).
-    Retorna dicionário grupo → p_value.
-    """
     grupos = df["Grupos de usuários"].unique().tolist()
     base_label = grupos[0]
     base_series = df[df["Grupos de usuários"] == base_label]["compradores"]
@@ -106,24 +107,15 @@ def run_significance_tests(df: pd.DataFrame) -> dict:
 
 # ─── Decisão ─────────────────────────────────────────────────────────────────
 def decide_winner(summary: pd.DataFrame, sig_tests: dict) -> tuple[str, str]:
-    """
-    Lógica de decisão:
-    1. Somente grupos com diferença estatisticamente significativa (p < 0.05)
-       frente ao controle (Grupo 1) entram na competição de escalabilidade.
-       Grupo 1 sempre elegível como fallback.
-    2. Entre os elegíveis, o critério primário é LUCRO total (margem × volume).
-    3. Em caso de empate, desempate por GMV total.
-    Retorna (nome_do_grupo_vencedor, justificativa).
-    """
     grupos = summary["Grupos de usuários"].tolist()
     controle = grupos[0]
 
-    elegíveis = [controle]
+    elegiveis = [controle]
     for g, p in sig_tests.items():
         if p < 0.05:
-            elegíveis.append(g)
+            elegiveis.append(g)
 
-    subset = summary[summary["Grupos de usuários"].isin(elegíveis)]
+    subset = summary[summary["Grupos de usuários"].isin(elegiveis)]
     winner_row = subset.loc[subset["lucro_total"].idxmax()]
     winner = winner_row["Grupos de usuários"]
 
@@ -148,7 +140,6 @@ def generate_report(df: pd.DataFrame, summary: pd.DataFrame, sig_tests: dict,
     periodo_ini = df["Data"].min().strftime("%d/%m/%Y")
     periodo_fim = df["Data"].max().strftime("%d/%m/%Y")
     n_grupos = summary.shape[0]
-    nome_teste = f"Teste A/B {parceiro}"
 
     lines = []
     lines.append(f"# Relatório de Teste A/B — {parceiro}")
@@ -197,7 +188,7 @@ def generate_report(df: pd.DataFrame, summary: pd.DataFrame, sig_tests: dict,
         lines.append(f"| {controle} vs {g} | {p:.4f} | {sig} |")
 
     if not sig_tests:
-        lines.append(f"| — | — | Apenas 1 variante além do controle |")
+        lines.append("| — | — | Apenas 1 variante além do controle |")
 
     lines.append("")
     lines.append("---")
@@ -221,7 +212,7 @@ def generate_report(df: pd.DataFrame, summary: pd.DataFrame, sig_tests: dict,
         lines.append(f"- Compradores adicionais: **{int(delta_compradores):,}**")
         lines.append(f"- Margem: {fmt_pct(winner_row['margem_pct'])} vs {fmt_pct(controle_row['margem_pct'])} do controle")
     else:
-        lines.append(f"O controle se manteve como variante mais rentável.")
+        lines.append("O controle se manteve como variante mais rentável.")
         lines.append(f"- Margem operacional: **{fmt_pct(winner_row['margem_pct'])}**")
         lines.append(f"- Lucro total: **{fmt_brl(winner_row['lucro_total'])}**")
 
@@ -237,7 +228,6 @@ def generate_report(df: pd.DataFrame, summary: pd.DataFrame, sig_tests: dict,
     lines.append("### Observações importantes")
     lines.append("")
 
-    # Alertas automáticos
     min_lucro = summary["lucro_total"].min()
     if min_lucro <= 0:
         worst = summary.loc[summary["lucro_total"].idxmin(), "Grupos de usuários"]
@@ -245,17 +235,16 @@ def generate_report(df: pd.DataFrame, summary: pd.DataFrame, sig_tests: dict,
 
     cashback_max = summary["cashback_pct_gmv"].max()
     if cashback_max > 8:
-        lines.append(f"⚠️ **Cashback acima de 8% do GMV** em ao menos uma variante — risco de unsustainability.")
+        lines.append("⚠️ **Cashback acima de 8% do GMV** em ao menos uma variante — risco de unsustainability.")
 
     lines.append(f"- Ticket médio estável entre variantes (~{fmt_brl(summary['ticket_medio'].mean())}) — o cashback não alterou o comportamento de compra por pedido.")
-    lines.append(f"- Recomenda-se monitorar retenção e LTV após escalonamento.")
+    lines.append("- Recomenda-se monitorar retenção e LTV após escalonamento.")
     lines.append("")
 
     return "\n".join(lines)
 
-# ─── Registro no tracker ─────────────────────────────────────────────────────
-def register_in_tracker(df: pd.DataFrame, summary: pd.DataFrame,
-                         sig_tests: dict, winner: str, justificativa: str):
+# ─── Registro no tracker CSV ─────────────────────────────────────────────────
+def build_tracker_row(df, summary, sig_tests, winner, justificativa):
     parceiro = df["Parceiro"].iloc[0]
     periodo_ini = df["Data"].min().strftime("%d/%m/%Y")
     periodo_fim = df["Data"].max().strftime("%d/%m/%Y")
@@ -263,7 +252,7 @@ def register_in_tracker(df: pd.DataFrame, summary: pd.DataFrame,
     winner_row = summary[summary["Grupos de usuários"] == winner].iloc[0]
     p_vals = ", ".join([f"{g}: {p}" for g, p in sig_tests.items()]) if sig_tests else "N/A"
 
-    row = {
+    return {
         "data_analise": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "nome_teste": f"Teste A/B {parceiro}",
         "parceiro": parceiro,
@@ -278,14 +267,44 @@ def register_in_tracker(df: pd.DataFrame, summary: pd.DataFrame,
         "decisao": f"Escalar {winner} para 100% do tráfego",
     }
 
+def register_in_csv(row: dict):
     file_exists = os.path.isfile(TRACKER_FILE)
     with open(TRACKER_FILE, "a", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=TRACKER_COLUMNS)
         if not file_exists:
             writer.writeheader()
         writer.writerow(row)
+    print(f"✅ Registrado no CSV local: '{TRACKER_FILE}'")
 
-    print(f"✅ Registrado em '{TRACKER_FILE}'")
+def register_in_sheets(row: dict):
+    try:
+        import gspread
+        from google.oauth2.service_account import Credentials
+
+        scopes = [
+            "https://www.googleapis.com/auth/spreadsheets",
+            "https://www.googleapis.com/auth/drive",
+        ]
+
+        creds = Credentials.from_service_account_file(SHEETS_CREDENTIALS_FILE, scopes=scopes)
+        client = gspread.authorize(creds)
+        sheet = client.open_by_key(SHEETS_SPREADSHEET_ID).sheet1
+
+        # Garante cabeçalho na primeira linha
+        existing = sheet.get_all_values()
+        if not existing:
+            sheet.append_row(TRACKER_COLUMNS)
+
+        # Adiciona linha com os valores na ordem correta
+        new_row = [str(row[col]) for col in TRACKER_COLUMNS]
+        sheet.append_row(new_row)
+
+        print(f"✅ Registrado direto no Google Sheets!")
+
+    except FileNotFoundError:
+        print(f"⚠️  Credenciais não encontradas ({SHEETS_CREDENTIALS_FILE}). Pulando Sheets.")
+    except Exception as e:
+        print(f"⚠️  Erro ao escrever no Sheets: {e}. Dados salvos no CSV local.")
 
 # ─── Ponto de entrada ────────────────────────────────────────────────────────
 def run(filepath: str):
@@ -309,7 +328,9 @@ def run(filepath: str):
     print(report_text)
     print(f"\n📄 Relatório salvo em: {report_path}")
 
-    register_in_tracker(df, summary, sig_tests, winner, justificativa)
+    row = build_tracker_row(df, summary, sig_tests, winner, justificativa)
+    register_in_csv(row)
+    register_in_sheets(row)
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
