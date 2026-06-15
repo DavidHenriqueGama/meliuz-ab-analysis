@@ -14,7 +14,7 @@ Basta indicar um novo CSV no schema padrão que a solução entrega o relatório
 ```
 meliuz-ab-analysis/
 ├── analyze_ab.py          # Script principal (reutilizável)
-├── ab_tracker.csv         # Planilha de acompanhamento (gerada automaticamente)
+├── ab_tracker.csv         # Planilha de acompanhamento [ver no Google Sheets] (https://docs.google.com/spreadsheets/d/1__IQqt70t8w-jqs4Nt2d_PJ7c1-d01OBtp7j4fUWQzM/edit?usp=sharing)
 ├── datasets/              # CSVs de entrada
 │   ├── dataset_01_parceiroA.csv
 │   ├── dataset_02_parceiroB.csv
